@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reporte de Auditoría Trimestral - v2.1</title>
+  <script src="https://unpkg.com"></script>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+  <div class="contenedor">
+    <div class="cabecera">
+      <h1>Módulo de Validación Cruzada (Meta: 5 pts)</h1>
+      <span class="estado-badge" id="badge-estado">Sin conexión</span>
+    </div>
+
+    <div id="panel-conexion">
+      <p><strong>1. Identificador local:</strong> <span id="mi-id" class="mono">Generando...</span></p>
+      <div class="fila-conexion">
+        <input type="text" id="id-rival" placeholder="Pegar ID del analista remoto">
+        <button onclick="conectar()">Conectar</button>
+      </div>
+    </div>
+
+    <div id="panel-juego" style="display:none;">
+      <div class="grid-principal">
+        
+        <div>
+          <div class="marcador-box">
+            <div>
+              <div class="etiqueta-jugador">ANALISTA LOCAL</div>
+              <div class="puntaje" id="pts-mios">0</div>
+            </div>
+            <div class="vs">VS</div>
+            <div>
+              <div class="etiqueta-jugador">ANALISTA REMOTO</div>
+              <div class="puntaje" id="pts-rival">0</div>
+            </div>
+          </div>
+
+          <div class="seccion">
+            <h3 class="seccion-titulo">Entrada de Parámetros — Ronda <span id="num-ronda">1</span></h3>
+            <p id="instruccion">Fija tu valor secreto presionando <span class="tecla">0</span> <span class="tecla">1</span> <span class="tecla">2</span> o <span class="tecla">3</span>.</p>
+            <div id="indicador-doble" class="alerta-doble">⚡ Multiplicador x2 ACTIVADO (+2 si aciertas / -1 si fallas)</div>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <h3 class="seccion-titulo">Registro de Auditoría</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Ronda</th>
+                  <th>Tuyo</th>
+                  <th>Rival</th>
+                  <th>Suma</th>
+                  <th>Predicción</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-historial"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="seccion">
+          <h3 class="seccion-titulo">Bitácora de Notas (Chat)</h3>
+          <div class="chat-box" id="chat-mensajes">
+            <div class="chat-linea chat-sistema">Canal seguro listo. Escribe abajo para enviar notas...</div>
+          </div>
+          <input type="text" id="input-chat" placeholder="Escribir nota y presionar Enter..." onkeydown="enviarChat(event)">
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="juego.js"></script>
+</body>
+</html>
