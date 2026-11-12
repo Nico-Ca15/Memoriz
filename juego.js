@@ -1,5 +1,4 @@
-let client = null;
-let topicSala = '';
+let canalUrl = '';
 const miIdUnico = 'analista_' + Math.random().toString(36).substring(2, 9);
 let conectado = false;
 let ronda = 1;
@@ -15,54 +14,56 @@ let puntosRival = 0;
 const META_PUNTOS = 5;
 
 function entrarSala() {
-  const sala = document.getElementById('nombre-sala').value.trim().toLowerCase();
+  const sala = document.getElementById('nombre-sala').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!sala) return;
 
-  topicSala = `memoriz-auditoria-2026/${sala}`;
+  canalUrl = `https://ntfy.sh{sala}`;
   document.getElementById('badge-estado').innerText = 'Conectando...';
   document.getElementById('estado-sala').innerText = `Conectando al canal "${sala}"... Dile a tu compañero que entre con la misma clave.`;
 
-  client = mqtt.connect('wss://://hivemq.com');
+  // Escuchar mensajes entrantes en tiempo real de forma nativa
+  const eventSource = new EventSource(`${canalUrl}/sse`);
 
-  client.on('connect', () => {
-    client.subscribe(topicSala, (err) => {
-      if (!err) {
-        enviarDato({ tipo: 'HOLA' });
-      }
-    });
-  });
+  eventSource.onopen = () => {
+    enviarDato({ tipo: 'HOLA' });
+  };
 
-  client.on('message', (topic, message) => {
-    const datos = JSON.parse(message.toString());
-    
-    // Ignorar nuestros propios mensajes rebotados
-    if (datos.emisor === miIdUnico) return;
+  eventSource.onmessage = (event) => {
+    try {
+      const paquete = JSON.parse(event.data);
+      if (!paquete.message) return;
+      
+      const datos = JSON.parse(paquete.message);
+      if (datos.emisor === miIdUnico) return;
 
-    if (datos.tipo === 'HOLA') {
-      if (!conectado) {
-        activarTablero(sala);
-        enviarDato({ tipo: 'HOLA_RESPUESTA' });
+      if (datos.tipo === 'HOLA') {
+        if (!conectado) {
+          activarTablero(sala);
+          enviarDato({ tipo: 'HOLA_RESPUESTA' });
+        }
+      } else if (datos.tipo === 'HOLA_RESPUESTA') {
+        if (!conectado) {
+          activarTablero(sala);
+        }
+      } else if (datos.tipo === 'NUMERO') {
+        rivalNumero = datos.valor;
+        agregarChat('Sistema: El rival ya fijó su número oculto.', 'chat-sistema');
+        verificarCambioFase();
+      } else if (datos.tipo === 'SUMA') {
+        rivalPrediccion = datos.valor;
+        rivalDoble = datos.doble;
+        const textoDoble = rivalDoble ? ' [CON DOBLE x2]' : '';
+        agregarChat(`Sistema: El rival ya envió su predicción${textoDoble}.`, 'chat-sistema');
+        verificarResolucion();
+      } else if (datos.tipo === 'CHAT') {
+        agregarChat(`Remoto: ${datos.texto}`, 'chat-rival');
+      } else if (datos.tipo === 'REINICIAR') {
+        reiniciarPartidaCompleta(false);
       }
-    } else if (datos.tipo === 'HOLA_RESPUESTA') {
-      if (!conectado) {
-        activarTablero(sala);
-      }
-    } else if (datos.tipo === 'NUMERO') {
-      rivalNumero = datos.valor;
-      agregarChat('Sistema: El rival ya fijó su número oculto.', 'chat-sistema');
-      verificarCambioFase();
-    } else if (datos.tipo === 'SUMA') {
-      rivalPrediccion = datos.valor;
-      rivalDoble = datos.doble;
-      const textoDoble = rivalDoble ? ' [CON DOBLE x2]' : '';
-      agregarChat(`Sistema: El rival ya envió su predicción${textoDoble}.`, 'chat-sistema');
-      verificarResolucion();
-    } else if (datos.tipo === 'CHAT') {
-      agregarChat(`Remoto: ${datos.texto}`, 'chat-rival');
-    } else if (datos.tipo === 'REINICIAR') {
-      reiniciarPartidaCompleta(false);
+    } catch (e) {
+      // Ignorar mensajes de control del servidor
     }
-  });
+  };
 }
 
 function activarTablero(sala) {
@@ -74,10 +75,12 @@ function activarTablero(sala) {
 }
 
 function enviarDato(objeto) {
-  if (client && client.connected) {
-    objeto.emisor = miIdUnico;
-    client.publish(topicSala, JSON.stringify(objeto));
-  }
+  if (!canalUrl) return;
+  objeto.emisor = miIdUnico;
+  fetch(canalUrl, {
+    method: 'POST',
+    body: JSON.stringify(objeto)
+  }).catch(() => {});
 }
 
 document.addEventListener('keydown', (e) => {
