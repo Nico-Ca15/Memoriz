@@ -2,8 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Reporte de Auditoría Trimestral - v2.1</title>
-  <script src="https://unpkg.com"></script>
+  <title>Reporte de Auditoría Trimestral - v2.2</title>
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
@@ -15,11 +14,12 @@
     </div>
 
     <div id="panel-conexion">
-      <p><strong>1. Identificador local:</strong> <span id="mi-id" class="mono">Generando...</span></p>
+      <p><strong>1. Código de sala compartida:</strong> Escribe la misma palabra clave que tu compañero.</p>
       <div class="fila-conexion">
-        <input type="text" id="id-rival" placeholder="Pegar ID del analista remoto">
-        <button onclick="conectar()">Conectar</button>
+        <input type="text" id="nombre-sala" placeholder="Ej: auditoria2026" onkeydown="if(event.key==='Enter') entrarSala()">
+        <button onclick="entrarSala()">Entrar a Sala</button>
       </div>
+      <p id="estado-sala" style="font-size: 12px; color: #64748b; margin-top: 8px;"></p>
     </div>
 
     <div id="panel-juego" style="display:none;">
@@ -74,6 +74,6 @@
     </div>
   </div>
 
-  <script src="juego.js"></script>
+  <script type="module" src="juego.js"></script>
 </body>
 </html>

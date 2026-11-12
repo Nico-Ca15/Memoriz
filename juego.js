@@ -1,5 +1,7 @@
-const peer = new Peer();
-let conn = null;
+import { joinRoom } from 'https://esm.sh';
+
+let enviarDato = null;
+let conectado = false;
 let ronda = 1;
 let miNumero = null;
 let rivalNumero = null;
@@ -12,32 +14,33 @@ let puntosMios = 0;
 let puntosRival = 0;
 const META_PUNTOS = 5;
 
-peer.on('open', (id) => {
-  document.getElementById('mi-id').innerText = id;
-});
+window.entrarSala = function() {
+  const sala = document.getElementById('nombre-sala').value.trim().toLowerCase();
+  if (!sala) return;
 
-peer.on('connection', (conexion) => {
-  conn = conexion;
-  iniciarSesion();
-});
+  document.getElementById('badge-estado').innerText = 'Buscando par...';
+  document.getElementById('estado-sala').innerText = `Conectando a la sala "${sala}"... Dile a tu compañero que escriba exactamente lo mismo.`;
 
-function conectar() {
-  const idRival = document.getElementById('id-rival').value.trim();
-  if (!idRival) return;
-  conn = peer.connect(idRival);
-  document.getElementById('badge-estado').innerText = 'Conectando...';
-  iniciarSesion();
-}
+  const config = { appId: 'duelo-auditoria-nico-v1' };
+  const room = joinRoom(config, sala);
+  const [sendAction, getAction] = room.makeAction('juego');
+  enviarDato = sendAction;
 
-function iniciarSesion() {
-  conn.on('open', () => {
+  room.onPeerJoin(() => {
+    conectado = true;
     document.getElementById('panel-conexion').style.display = 'none';
     document.getElementById('panel-juego').style.display = 'block';
-    document.getElementById('badge-estado').innerText = 'Sincronizado (En línea)';
-    agregarChat('Sistema: Conexión establecida con el par remoto.', 'chat-sistema');
+    document.getElementById('badge-estado').innerText = `Sala: ${sala} (En línea)`;
+    agregarChat('Sistema: Conexión directa establecida con el par remoto.', 'chat-sistema');
   });
 
-  conn.on('data', (datos) => {
+  room.onPeerLeave(() => {
+    conectado = false;
+    document.getElementById('badge-estado').innerText = 'Rival desconectado';
+    agregarChat('Sistema: El analista remoto cerró la sesión.', 'chat-sistema');
+  });
+
+  getAction((datos) => {
     if (datos.tipo === 'NUMERO') {
       rivalNumero = datos.valor;
       agregarChat('Sistema: El rival ya fijó su número oculto.', 'chat-sistema');
@@ -54,18 +57,18 @@ function iniciarSesion() {
       reiniciarPartidaCompleta(false);
     }
   });
-}
+};
 
 document.addEventListener('keydown', (e) => {
-  if (document.activeElement.id === 'input-chat') return;
-  if (!conn || !conn.open) return;
+  if (document.activeElement.id === 'input-chat' || document.activeElement.id === 'nombre-sala') return;
+  if (!conectado || !enviarDato) return;
 
   const tecla = e.key.toLowerCase();
 
   if (fase === 'ELEGIR_NUMERO' && ['0', '1', '2', '3'].includes(tecla)) {
     miNumero = parseInt(tecla);
     fase = 'ESPERANDO_NUMERO';
-    conn.send({ tipo: 'NUMERO', valor: miNumero });
+    enviarDato({ tipo: 'NUMERO', valor: miNumero });
     document.getElementById('instruccion').innerText = `Elegiste [${miNumero}]. Esperando al rival...`;
     verificarCambioFase();
   } 
@@ -76,7 +79,7 @@ document.addEventListener('keydown', (e) => {
     } else if (['0', '1', '2', '3', '4', '5', '6'].includes(tecla)) {
       miPrediccion = parseInt(tecla);
       fase = 'ESPERANDO_SUMA';
-      conn.send({ tipo: 'SUMA', valor: miPrediccion, doble: miDoble });
+      enviarDato({ tipo: 'SUMA', valor: miPrediccion, doble: miDoble });
       document.getElementById('instruccion').innerText = `Predicción enviada: [${miPrediccion}]. Esperando...`;
       verificarResolucion();
     }
@@ -174,7 +177,7 @@ function finalizarPartida() {
 }
 
 function reiniciarPartidaCompleta(notificar) {
-  if (notificar) conn.send({ tipo: 'REINICIAR' });
+  if (notificar && enviarDato) enviarDato({ tipo: 'REINICIAR' });
   ronda = 1;
   puntosMios = 0;
   puntosRival = 0;
@@ -185,17 +188,17 @@ function reiniciarPartidaCompleta(notificar) {
   agregarChat('Sistema: Nueva serie iniciada.', 'chat-sistema');
 }
 
-function enviarChat(e) {
+window.enviarChat = function(e) {
   if (e.key === 'Enter') {
     const input = document.getElementById('input-chat');
     const texto = input.value.trim();
-    if (texto && conn && conn.open) {
-      conn.send({ tipo: 'CHAT', texto: texto });
+    if (texto && conectado && enviarDato) {
+      enviarDato({ tipo: 'CHAT', texto: texto });
       agregarChat(`Tú: ${texto}`, 'chat-mio');
       input.value = '';
     }
   }
-}
+};
 
 function agregarChat(mensaje, clase) {
   const box = document.getElementById('chat-mensajes');
