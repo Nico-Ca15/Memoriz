@@ -123,7 +123,22 @@ function verificarResolucion() {
     if (puntosMios >= META_VICTORIAS || puntosRival >= META_VICTORIAS || ronda >= MAX_RONDAS) {
       finalizarPartida();
     } else {
-      prepararSiguienteRonda();
+      function prepararSiguienteRonda() {
+        ronda++;
+        miOferta = null;
+        rivalOferta = null;
+
+        document.getElementById('num-ronda').innerText = ronda;
+        const input = document.getElementById('input-oferta');
+        input.max = saldoMio;
+        input.placeholder = `Monto (0 - ${saldoMio})`;
+
+        document.getElementById('instruccion').innerHTML = 
+          `Ingresa tu oferta secreta (0 a <span id="max-apuesta">${saldoMio}</span>) y presiona <span class="tecla">Enter</span>:`;
+        document.getElementById('controles-oferta').style.display = 'flex';
+        input.focus();
+      }
+
     }
   }
 }
