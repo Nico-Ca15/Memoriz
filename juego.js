@@ -19,7 +19,7 @@ function entrarSala() {
   const sala = document.getElementById('nombre-sala').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!sala) return;
 
-  canalUrl = "https://ntfy.sh_" + sala;
+  canalUrl = "https://ntfy.sh/memoriz_" + sala;
   document.getElementById('badge-estado').innerText = 'Conectando...';
   document.getElementById('estado-sala').innerText = `Conectando a "${sala}"... Dile a tu compañero que entre con la misma clave.`;
 
