@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Reporte de Auditoría Trimestral - v3.0</title>
+  <title>Asignación de Presupuesto Q4 - v4.0</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="estilos.css">
 </head>
@@ -10,17 +10,17 @@
 
   <div class="contenedor">
     <div class="cabecera">
-      <h1>Módulo de Validación Cruzada (Meta: 5 pts)</h1>
+      <h1>Sistema de Licitación Interna (Meta: 4 rondas)</h1>
       <span class="estado-badge" id="badge-estado">Sin conexión</span>
     </div>
 
     <div id="panel-conexion">
       <p><strong>1. Código de sala compartida:</strong> Escribe la misma palabra clave que tu compañero.</p>
       <div class="fila-conexion">
-        <input type="text" id="nombre-sala" placeholder="Ej: auditoria2026" onkeydown="if(event.key==='Enter') entrarSala()">
-        <button onclick="entrarSala()">Entrar a Sala</button>
+        <input type="text" id="nombre-sala" placeholder="Ej: licitacion01" onkeydown="if(event.key==='Enter') entrarSala()">
+        <button onclick="entrarSala()">Conectar</button>
       </div>
-      <p id="estado-sala" style="font-size: 12px; color: #64748b; margin-top: 8px;"></p>
+      <p id="estado-sala" class="texto-ayuda"></p>
     </div>
 
     <div id="panel-juego" style="display:none;">
@@ -29,33 +29,37 @@
         <div>
           <div class="marcador-box">
             <div>
-              <div class="etiqueta-jugador">ANALISTA LOCAL</div>
+              <div class="etiqueta-jugador">TUS RONDAS</div>
               <div class="puntaje" id="pts-mios">0</div>
+              <div class="saldo-tag">Saldo: <strong id="saldo-mio">100</strong></div>
             </div>
             <div class="vs">VS</div>
             <div>
-              <div class="etiqueta-jugador">ANALISTA REMOTO</div>
+              <div class="etiqueta-jugador">RONDAS RIVAL</div>
               <div class="puntaje" id="pts-rival">0</div>
+              <div class="saldo-tag">Saldo: <strong id="saldo-rival">100</strong></div>
             </div>
           </div>
 
           <div class="seccion">
-            <h3 class="seccion-titulo">Entrada de Parámetros — Ronda <span id="num-ronda">1</span></h3>
-            <p id="instruccion">Fija tu valor secreto presionando <span class="tecla">0</span> <span class="tecla">1</span> <span class="tecla">2</span> o <span class="tecla">3</span>.</p>
-            <div id="indicador-doble" class="alerta-doble">⚡ Multiplicador x2 ACTIVADO (+2 si aciertas / -1 si fallas)</div>
+            <h3 class="seccion-titulo">Licitación — Ronda <span id="num-ronda">1</span> de 7</h3>
+            <p id="instruccion">Ingresa tu oferta secreta (0 a <span id="max-apuesta">100</span>) y presiona <span class="tecla">Enter</span>:</p>
+            
+            <div class="fila-conexion" id="controles-oferta">
+              <input type="number" id="input-oferta" min="0" max="100" placeholder="Monto (0 - 100)" onkeydown="if(event.key==='Enter') enviarOferta()">
+              <button onclick="enviarOferta()">Fijar Oferta</button>
+            </div>
           </div>
 
           <div style="margin-top: 15px;">
-            <h3 class="seccion-titulo">Registro de Auditoría</h3>
+            <h3 class="seccion-titulo">Historial de Adjudicaciones</h3>
             <table>
               <thead>
                 <tr>
                   <th>Ronda</th>
-                  <th>Tuyo</th>
-                  <th>Rival</th>
-                  <th>Suma</th>
-                  <th>Predicción</th>
-                  <th>Resultado</th>
+                  <th>Tu Oferta</th>
+                  <th>Oferta Rival</th>
+                  <th>Ganador</th>
                 </tr>
               </thead>
               <tbody id="tabla-historial"></tbody>
@@ -66,7 +70,7 @@
         <div class="seccion">
           <h3 class="seccion-titulo">Bitácora de Notas (Chat)</h3>
           <div class="chat-box" id="chat-mensajes">
-            <div class="chat-linea chat-sistema">Canal seguro listo. Escribe abajo para enviar notas...</div>
+            <div class="chat-linea chat-sistema">Canal listo. Negocia o distrae al rival abajo...</div>
           </div>
           <input type="text" id="input-chat" placeholder="Escribir nota y presionar Enter..." onkeydown="enviarChat(event)">
         </div>
@@ -75,6 +79,6 @@
     </div>
   </div>
 
-  <script src="juego.js"></script>
+  <script src="juego.js?v=4"></script>
 </body>
 </html>

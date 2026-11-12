@@ -1,27 +1,28 @@
 let canalUrl = '';
 const miIdUnico = 'analista_' + Math.random().toString(36).substring(2, 9);
 let conectado = false;
+
 let ronda = 1;
-let miNumero = null;
-let rivalNumero = null;
-let miPrediccion = null;
-let rivalPrediccion = null;
-let miDoble = false;
-let rivalDoble = false;
-let fase = 'ELEGIR_NUMERO';
+const MAX_RONDAS = 7;
+const META_VICTORIAS = 4;
+
+let saldoMio = 100;
+let saldoRival = 100;
 let puntosMios = 0;
 let puntosRival = 0;
-const META_PUNTOS = 5;
+
+let miOferta = null;
+let rivalOferta = null;
+let partidaTerminada = false;
 
 function entrarSala() {
   const sala = document.getElementById('nombre-sala').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!sala) return;
 
-  canalUrl = "https://ntfy.sh/memoriz_" + sala;
+  canalUrl = "https://ntfy.sh_" + sala;
   document.getElementById('badge-estado').innerText = 'Conectando...';
-  document.getElementById('estado-sala').innerText = `Conectando al canal "${sala}"... Dile a tu compañero que entre con la misma clave.`;
+  document.getElementById('estado-sala').innerText = `Conectando a "${sala}"... Dile a tu compañero que entre con la misma clave.`;
 
-  // Escuchar mensajes entrantes en tiempo real de forma nativa
   const eventSource = new EventSource(`${canalUrl}/sse`);
 
   eventSource.onopen = () => {
@@ -45,24 +46,16 @@ function entrarSala() {
         if (!conectado) {
           activarTablero(sala);
         }
-      } else if (datos.tipo === 'NUMERO') {
-        rivalNumero = datos.valor;
-        agregarChat('Sistema: El rival ya fijó su número oculto.', 'chat-sistema');
-        verificarCambioFase();
-      } else if (datos.tipo === 'SUMA') {
-        rivalPrediccion = datos.valor;
-        rivalDoble = datos.doble;
-        const textoDoble = rivalDoble ? ' [CON DOBLE x2]' : '';
-        agregarChat(`Sistema: El rival ya envió su predicción${textoDoble}.`, 'chat-sistema');
+      } else if (datos.tipo === 'OFERTA') {
+        rivalOferta = datos.valor;
+        agregarChat('Sistema: El analista remoto ya fijó su oferta secreta.', 'chat-sistema');
         verificarResolucion();
       } else if (datos.tipo === 'CHAT') {
         agregarChat(`Remoto: ${datos.texto}`, 'chat-rival');
       } else if (datos.tipo === 'REINICIAR') {
         reiniciarPartidaCompleta(false);
       }
-    } catch (e) {
-      // Ignorar mensajes de control del servidor
-    }
+    } catch (e) {}
   };
 }
 
@@ -71,7 +64,8 @@ function activarTablero(sala) {
   document.getElementById('panel-conexion').style.display = 'none';
   document.getElementById('panel-juego').style.display = 'block';
   document.getElementById('badge-estado').innerText = `Sala: ${sala} (En línea)`;
-  agregarChat('Sistema: Conexión directa establecida con el par remoto.', 'chat-sistema');
+  document.getElementById('input-oferta').focus();
+  agregarChat('Sistema: Sesión iniciada. Presupuesto inicial: 100 créditos cada uno.', 'chat-sistema');
 }
 
 function enviarDato(objeto) {
@@ -83,80 +77,50 @@ function enviarDato(objeto) {
   }).catch(() => {});
 }
 
-document.addEventListener('keydown', (e) => {
-  if (document.activeElement.id === 'input-chat' || document.activeElement.id === 'nombre-sala') return;
-  if (!conectado) return;
+function enviarOferta() {
+  if (!conectado || partidaTerminada || miOferta !== null) return;
 
-  const tecla = e.key.toLowerCase();
+  const input = document.getElementById('input-oferta');
+  const valor = parseInt(input.value);
 
-  if (fase === 'ELEGIR_NUMERO' && ['0', '1', '2', '3'].includes(tecla)) {
-    miNumero = parseInt(tecla);
-    fase = 'ESPERANDO_NUMERO';
-    enviarDato({ tipo: 'NUMERO', valor: miNumero });
-    document.getElementById('instruccion').innerText = `Elegiste [${miNumero}]. Esperando al rival...`;
-    verificarCambioFase();
-  } 
-  else if (fase === 'ELEGIR_SUMA') {
-    if (tecla === 'd') {
-      miDoble = !miDoble;
-      document.getElementById('indicador-doble').style.display = miDoble ? 'block' : 'none';
-    } else if (['0', '1', '2', '3', '4', '5', '6'].includes(tecla)) {
-      miPrediccion = parseInt(tecla);
-      fase = 'ESPERANDO_SUMA';
-      enviarDato({ tipo: 'SUMA', valor: miPrediccion, doble: miDoble });
-      document.getElementById('instruccion').innerText = `Predicción enviada: [${miPrediccion}]. Esperando...`;
-      verificarResolucion();
-    }
+  if (isNaN(valor) || valor < 0 || valor > saldoMio) {
+    alert(`Ingresa un monto válido entre 0 y ${saldoMio}.`);
+    return;
   }
-  else if (fase === 'FIN' && tecla === 'r') {
-    reiniciarPartidaCompleta(true);
-  }
-});
 
-function verificarCambioFase() {
-  if (miNumero !== null && rivalNumero !== null) {
-    fase = 'ELEGIR_SUMA';
-    document.getElementById('instruccion').innerHTML = 
-      'Adivina la <strong>SUMA TOTAL</strong> (<span class="tecla">0</span> al <span class="tecla">6</span>). Opcional: presiona <span class="tecla">D</span> para Riesgo x2.';
-  }
+  miOferta = valor;
+  input.value = '';
+  document.getElementById('controles-oferta').style.display = 'none';
+  document.getElementById('instruccion').innerText = `Oferta fijada: [${miOferta} créditos]. Esperando al rival...`;
+
+  enviarDato({ tipo: 'OFERTA', valor: miOferta });
+  verificarResolucion();
 }
 
 function verificarResolucion() {
-  if (miPrediccion !== null && rivalPrediccion !== null) {
-    const sumaReal = miNumero + rivalNumero;
-    let textoResultado = '';
+  if (miOferta !== null && rivalOferta !== null) {
+    saldoMio -= miOferta;
+    saldoRival -= rivalOferta;
 
-    if (miPrediccion === sumaReal) {
-      const ganado = miDoble ? 2 : 1;
-      puntosMios += ganado;
-      textoResultado = `+${ganado} pt (Tú)`;
-    } else if (miDoble) {
-      puntosMios = Math.max(0, puntosMios - 1);
-      textoResultado = `-1 pt (Fallo x2)`;
+    let ganadorTexto = '';
+    if (miOferta > rivalOferta) {
+      puntosMios++;
+      ganadorTexto = 'Tú (+1 ronda)';
+    } else if (rivalOferta > miOferta) {
+      puntosRival++;
+      ganadorTexto = 'Rival (+1 ronda)';
+    } else {
+      ganadorTexto = 'Empate (0 pts)';
     }
-
-    if (rivalPrediccion === sumaReal) {
-      const ganadoRival = rivalDoble ? 2 : 1;
-      puntosRival += ganadoRival;
-      textoResultado += textoResultado ? ` / +${ganadoRival} (Rival)` : `+${ganadoRival} pt (Rival)`;
-    } else if (rivalDoble) {
-      puntosRival = Math.max(0, puntosRival - 1);
-    }
-
-    if (!textoResultado) textoResultado = 'Sin puntos';
 
     document.getElementById('pts-mios').innerText = puntosMios;
     document.getElementById('pts-rival').innerText = puntosRival;
-    agregarFilaHistorial(
-      ronda, 
-      miNumero, 
-      rivalNumero, 
-      sumaReal, 
-      `${miPrediccion}${miDoble ? '(x2)' : ''} vs ${rivalPrediccion}${rivalDoble ? '(x2)' : ''}`, 
-      textoResultado
-    );
+    document.getElementById('saldo-mio').innerText = saldoMio;
+    document.getElementById('saldo-rival').innerText = saldoRival;
 
-    if (puntosMios >= META_PUNTOS || puntosRival >= META_PUNTOS) {
+    agregarFilaHistorial(ronda, miOferta, rivalOferta, ganadorTexto);
+
+    if (puntosMios >= META_VICTORIAS || puntosRival >= META_VICTORIAS || ronda >= MAX_RONDAS) {
       finalizarPartida();
     } else {
       prepararSiguienteRonda();
@@ -164,52 +128,75 @@ function verificarResolucion() {
   }
 }
 
-function agregarFilaHistorial(r, mio, riv, suma, preds, res) {
+function agregarFilaHistorial(r, mio, riv, res) {
   const tbody = document.getElementById('tabla-historial');
   const fila = `<tr>
     <td>#${r}</td>
     <td>${mio}</td>
     <td>${riv}</td>
-    <td><strong>${suma}</strong></td>
-    <td>${preds}</td>
-    <td>${res}</td>
+    <td><strong>${res}</strong></td>
   </tr>`;
   tbody.innerHTML = fila + tbody.innerHTML;
 }
 
 function prepararSiguienteRonda() {
   ronda++;
-  miNumero = null;
-  rivalNumero = null;
-  miPrediccion = null;
-  rivalPrediccion = null;
-  miDoble = false;
-  rivalDoble = false;
-  fase = 'ELEGIR_NUMERO';
+  miOferta = null;
+  rivalOferta = null;
+
   document.getElementById('num-ronda').innerText = ronda;
-  document.getElementById('indicador-doble').style.display = 'none';
+  document.getElementById('max-apuesta').innerText = saldoMio;
+  const input = document.getElementById('input-oferta');
+  input.max = saldoMio;
+  input.placeholder = `Monto (0 - ${saldoMio})`;
+
   document.getElementById('instruccion').innerHTML = 
-    'Fija tu valor secreto presionando <span class="tecla">0</span> <span class="tecla">1</span> <span class="tecla">2</span> o <span class="tecla">3</span>.';
+    `Ingresa tu oferta secreta (0 a <span id="max-apuesta">${saldoMio}</span>) y presiona <span class="tecla">Enter</span>:`;
+  document.getElementById('controles-oferta').style.display = 'flex';
+  input.focus();
 }
 
 function finalizarPartida() {
-  fase = 'FIN';
-  const ganador = puntosMios >= META_PUNTOS ? '¡GANASTE LA AUDITORÍA!' : 'EL ANALISTA REMOTO GANÓ LA SERIE.';
+  partidaTerminada = true;
+  let mensajeFinal = '';
+  if (puntosMios > puntosRival) {
+    mensajeFinal = '¡GANASTE LA LICITACIÓN!';
+  } else if (puntosRival > puntosMios) {
+    mensajeFinal = 'EL ANALISTA REMOTO GANÓ LA LICITACIÓN.';
+  } else {
+    mensajeFinal = 'EMPATE TÉCNICO AL FINAL DE LAS 7 RONDAS.';
+  }
+
   document.getElementById('instruccion').innerHTML = 
-    `<strong>${ganador}</strong> Presiona <span class="tecla">R</span> para iniciar una nueva serie.`;
-  agregarChat(`Sistema: Fin de la partida. ${ganador}`, 'chat-sistema');
+    `<strong>${mensajeFinal}</strong> <button onclick="reiniciarPartidaCompleta(true)" style="margin-left:10px;">Nueva Serie</button>`;
+  agregarChat(`Sistema: ${mensajeFinal}`, 'chat-sistema');
 }
 
 function reiniciarPartidaCompleta(notificar) {
   if (notificar) enviarDato({ tipo: 'REINICIAR' });
   ronda = 1;
+  saldoMio = 100;
+  saldoRival = 100;
   puntosMios = 0;
   puntosRival = 0;
+  miOferta = null;
+  rivalOferta = null;
+  partidaTerminada = false;
+
   document.getElementById('pts-mios').innerText = '0';
   document.getElementById('pts-rival').innerText = '0';
+  document.getElementById('saldo-mio').innerText = '100';
+  document.getElementById('saldo-rival').innerText = '100';
   document.getElementById('tabla-historial').innerHTML = '';
-  prepararSiguienteRonda();
-  agregarChat('Sistema: Nueva serie iniciada.', 'chat-sistema');
+
+  document.getElementById('num-ronda').innerText = '1';
+  const input = document.getElementById('input-oferta');
+  input.max = 100;
+  input.placeholder = 'Monto (0 - 100)';
+  document.getElementById('instruccion').innerHTML = 
+    'Ingresa tu oferta secreta (0 a <span id="max-apuesta">100</span>) y presiona <span class="tecla">Enter</span>:';
+  document.getElementById('controles-oferta').style.display = 'flex';
+  agregarChat('Sistema: Presupuestos reiniciados a 100 créditos.', 'chat-sistema');
 }
 
 function enviarChat(e) {
