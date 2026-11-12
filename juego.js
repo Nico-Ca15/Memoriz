@@ -1,6 +1,6 @@
-import { joinRoom } from 'https://esm.sh';
-
-let enviarDato = null;
+let client = null;
+let topicSala = '';
+const miIdUnico = 'analista_' + Math.random().toString(36).substring(2, 9);
 let conectado = false;
 let ronda = 1;
 let miNumero = null;
@@ -14,34 +14,40 @@ let puntosMios = 0;
 let puntosRival = 0;
 const META_PUNTOS = 5;
 
-window.entrarSala = function() {
+function entrarSala() {
   const sala = document.getElementById('nombre-sala').value.trim().toLowerCase();
   if (!sala) return;
 
-  document.getElementById('badge-estado').innerText = 'Buscando par...';
-  document.getElementById('estado-sala').innerText = `Conectando a la sala "${sala}"... Dile a tu compañero que escriba exactamente lo mismo.`;
+  topicSala = `memoriz-auditoria-2026/${sala}`;
+  document.getElementById('badge-estado').innerText = 'Conectando...';
+  document.getElementById('estado-sala').innerText = `Conectando al canal "${sala}"... Dile a tu compañero que entre con la misma clave.`;
 
-  const config = { appId: 'duelo-auditoria-nico-v1' };
-  const room = joinRoom(config, sala);
-  const [sendAction, getAction] = room.makeAction('juego');
-  enviarDato = sendAction;
+  client = mqtt.connect('wss://://hivemq.com');
 
-  room.onPeerJoin(() => {
-    conectado = true;
-    document.getElementById('panel-conexion').style.display = 'none';
-    document.getElementById('panel-juego').style.display = 'block';
-    document.getElementById('badge-estado').innerText = `Sala: ${sala} (En línea)`;
-    agregarChat('Sistema: Conexión directa establecida con el par remoto.', 'chat-sistema');
+  client.on('connect', () => {
+    client.subscribe(topicSala, (err) => {
+      if (!err) {
+        enviarDato({ tipo: 'HOLA' });
+      }
+    });
   });
 
-  room.onPeerLeave(() => {
-    conectado = false;
-    document.getElementById('badge-estado').innerText = 'Rival desconectado';
-    agregarChat('Sistema: El analista remoto cerró la sesión.', 'chat-sistema');
-  });
+  client.on('message', (topic, message) => {
+    const datos = JSON.parse(message.toString());
+    
+    // Ignorar nuestros propios mensajes rebotados
+    if (datos.emisor === miIdUnico) return;
 
-  getAction((datos) => {
-    if (datos.tipo === 'NUMERO') {
+    if (datos.tipo === 'HOLA') {
+      if (!conectado) {
+        activarTablero(sala);
+        enviarDato({ tipo: 'HOLA_RESPUESTA' });
+      }
+    } else if (datos.tipo === 'HOLA_RESPUESTA') {
+      if (!conectado) {
+        activarTablero(sala);
+      }
+    } else if (datos.tipo === 'NUMERO') {
       rivalNumero = datos.valor;
       agregarChat('Sistema: El rival ya fijó su número oculto.', 'chat-sistema');
       verificarCambioFase();
@@ -57,11 +63,26 @@ window.entrarSala = function() {
       reiniciarPartidaCompleta(false);
     }
   });
-};
+}
+
+function activarTablero(sala) {
+  conectado = true;
+  document.getElementById('panel-conexion').style.display = 'none';
+  document.getElementById('panel-juego').style.display = 'block';
+  document.getElementById('badge-estado').innerText = `Sala: ${sala} (En línea)`;
+  agregarChat('Sistema: Conexión directa establecida con el par remoto.', 'chat-sistema');
+}
+
+function enviarDato(objeto) {
+  if (client && client.connected) {
+    objeto.emisor = miIdUnico;
+    client.publish(topicSala, JSON.stringify(objeto));
+  }
+}
 
 document.addEventListener('keydown', (e) => {
   if (document.activeElement.id === 'input-chat' || document.activeElement.id === 'nombre-sala') return;
-  if (!conectado || !enviarDato) return;
+  if (!conectado) return;
 
   const tecla = e.key.toLowerCase();
 
@@ -177,7 +198,7 @@ function finalizarPartida() {
 }
 
 function reiniciarPartidaCompleta(notificar) {
-  if (notificar && enviarDato) enviarDato({ tipo: 'REINICIAR' });
+  if (notificar) enviarDato({ tipo: 'REINICIAR' });
   ronda = 1;
   puntosMios = 0;
   puntosRival = 0;
@@ -188,17 +209,17 @@ function reiniciarPartidaCompleta(notificar) {
   agregarChat('Sistema: Nueva serie iniciada.', 'chat-sistema');
 }
 
-window.enviarChat = function(e) {
+function enviarChat(e) {
   if (e.key === 'Enter') {
     const input = document.getElementById('input-chat');
     const texto = input.value.trim();
-    if (texto && conectado && enviarDato) {
+    if (texto && conectado) {
       enviarDato({ tipo: 'CHAT', texto: texto });
       agregarChat(`Tú: ${texto}`, 'chat-mio');
       input.value = '';
     }
   }
-};
+}
 
 function agregarChat(mensaje, clase) {
   const box = document.getElementById('chat-mensajes');
