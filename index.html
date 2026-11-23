@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Asignación de Presupuesto Q4 - v4.0</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asignación de Presupuesto Q4 - Portal Corporativo v5.0</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="estilos.css">
 </head>
@@ -10,75 +11,123 @@
 
   <div class="contenedor">
     <div class="cabecera">
-      <h1>Sistema de Licitación Interna (Meta: 4 rondas)</h1>
-      <span class="estado-badge" id="badge-estado">Sin conexión</span>
-    </div>
-
-    <div id="panel-conexion">
-      <p><strong>1. Código de sala compartida:</strong> Escribe la misma palabra clave que tu compañero.</p>
-      <div class="fila-conexion">
-        <input type="text" id="nombre-sala" placeholder="Ej: licitacion01" onkeydown="if(event.key==='Enter') entrarSala()">
-        <button onclick="entrarSala()">Conectar</button>
+      <div>
+        <h1>Sistema de Licitación Interna</h1>
+        <span class="subtitulo">Meta: 4 rondas ganadas (Máx. 7 rondas)</span>
       </div>
-      <p id="estado-sala" class="texto-ayuda"></p>
+      <div class="cabecera-derecha">
+        <button id="btn-sonido" class="btn-secundario" onclick="toggleSonido()" title="Activar/Silenciar audio">🔊 Audio</button>
+        <span class="estado-badge" id="badge-estado">Sin conexión</span>
+      </div>
     </div>
 
+    <!-- PANEL DE CONEXIÓN -->
+    <div id="panel-conexion">
+      <div class="card-inicio">
+        <h3>1. Código de sala compartida</h3>
+        <p class="texto-ayuda">Escribe la misma palabra clave que tu compañero para sincronizar el canal de licitación.</p>
+        <div class="fila-conexion">
+          <input type="text" id="nombre-sala" placeholder="Ej: licitacion01" maxlength="20" onkeydown="if(event.key==='Enter') entrarSala()">
+          <button id="btn-conectar" onclick="entrarSala()">Conectar Sala</button>
+        </div>
+        <p id="estado-sala" class="texto-ayuda estado-espera"></p>
+      </div>
+    </div>
+
+    <!-- PANEL DE JUEGO -->
     <div id="panel-juego" style="display:none;">
+      
+      <div class="barra-serie">
+        <span>Serie Global — Partidas ganadas:</span>
+        <strong>Tú: <span id="serie-mia">0</span></strong> | 
+        <strong>Remoto: <span id="serie-rival">0</span></strong>
+      </div>
+
       <div class="grid-principal">
         
+        <!-- COLUMNA IZQUIERDA: TABLERO -->
         <div>
           <div class="marcador-box">
-            <div>
+            <div class="jugador-card">
               <div class="etiqueta-jugador">TUS RONDAS</div>
               <div class="puntaje" id="pts-mios">0</div>
-              <div class="saldo-tag">Saldo: <strong id="saldo-mio">100</strong></div>
+              <div class="saldo-tag">Saldo: <strong id="saldo-mio">100</strong> cr</div>
+              <div class="barra-progreso"><div id="barra-saldo-mio" class="barra-relleno" style="width: 100%;"></div></div>
             </div>
-            <div class="vs">VS</div>
-            <div>
+
+            <div class="vs-columna">
+              <div class="vs">VS</div>
+              <div id="estado-rival-ronda" class="pill-estado">Rival pensando...</div>
+            </div>
+
+            <div class="jugador-card">
               <div class="etiqueta-jugador">RONDAS RIVAL</div>
               <div class="puntaje" id="pts-rival">0</div>
-              <div class="saldo-tag">Saldo: <strong id="saldo-rival">100</strong></div>
+              <div class="saldo-tag">Saldo: <strong id="saldo-rival">100</strong> cr</div>
+              <div class="barra-progreso"><div id="barra-saldo-rival" class="barra-relleno rival" style="width: 100%;"></div></div>
             </div>
           </div>
 
-          <div class="seccion">
-            <h3 class="seccion-titulo">Licitación — Ronda <span id="num-ronda">1</span> de 7</h3>
+          <div class="seccion" id="caja-licitacion">
+            <div class="seccion-header">
+              <h3 class="seccion-titulo">Licitación — Ronda <span id="num-ronda">1</span> de 7</h3>
+              <span class="badge-ronda" id="rondas-restantes">7 restantes</span>
+            </div>
+            
             <p id="instruccion">Ingresa tu oferta secreta (0 a <span id="max-apuesta">100</span>) y presiona <span class="tecla">Enter</span>:</p>
             
-            <div class="fila-conexion" id="controles-oferta">
-              <input type="number" id="input-oferta" min="0" max="100" placeholder="Monto (0 - 100)" onkeydown="if(event.key==='Enter') enviarOferta()">
-              <button onclick="enviarOferta()">Fijar Oferta</button>
+            <div id="zona-controles">
+              <div class="atajos-apuesta" id="atajos-apuesta">
+                <button type="button" class="btn-chip" onclick="fijarRapido(0)">0</button>
+                <button type="button" class="btn-chip" onclick="fijarRapido(10)">10</button>
+                <button type="button" class="btn-chip" onclick="fijarRapido(25)">25</button>
+                <button type="button" class="btn-chip" onclick="fijarPorcentaje(0.5)">50% saldo</button>
+                <button type="button" class="btn-chip btn-allin" onclick="fijarPorcentaje(1)">Todo</button>
+              </div>
+
+              <div class="fila-conexion" id="controles-oferta">
+                <input type="number" id="input-oferta" min="0" max="100" placeholder="Monto (0 - 100)" onkeydown="if(event.key==='Enter') enviarOferta()">
+                <button onclick="enviarOferta()">Fijar Oferta</button>
+              </div>
             </div>
           </div>
 
-          <div style="margin-top: 15px;">
+          <div class="seccion" style="margin-top: 15px;">
             <h3 class="seccion-titulo">Historial de Adjudicaciones</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Ronda</th>
-                  <th>Tu Oferta</th>
-                  <th>Oferta Rival</th>
-                  <th>Ganador</th>
-                </tr>
-              </thead>
-              <tbody id="tabla-historial"></tbody>
-            </table>
+            <div class="tabla-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ronda</th>
+                    <th>Tu Oferta</th>
+                    <th>Oferta Rival</th>
+                    <th>Resultado</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-historial">
+                  <tr id="fila-vacia"><td colspan="4" class="texto-ayuda">Aún no se han cerrado rondas.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <div class="seccion">
-          <h3 class="seccion-titulo">Bitácora de Notas (Chat)</h3>
+        <!-- COLUMNA DERECHA: CHAT -->
+        <div class="seccion chat-panel">
+          <h3 class="seccion-titulo">Bitácora de Negociación (Chat)</h3>
           <div class="chat-box" id="chat-mensajes">
-            <div class="chat-linea chat-sistema">Canal listo. Negocia o distrae al rival abajo...</div>
+            <div class="chat-linea chat-sistema">Canal encriptado listo. Negocia o distrae al rival abajo...</div>
           </div>
-          <input type="text" id="input-chat" placeholder="Escribir nota y presionar Enter..." onkeydown="enviarChat(event)">
+          <div class="chat-input-row">
+            <input type="text" id="input-chat" placeholder="Escribir nota y Enter..." onkeydown="enviarChat(event)">
+            <button onclick="enviarChatBoton()">Enviar</button>
+          </div>
         </div>
 
       </div>
     </div>
   </div>
 
-  <script src="juego.js?v=4"></script>
+  <script src="juego.js?v=5"></script>
 </body>
 </html>
