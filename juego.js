@@ -76,7 +76,7 @@ function entrarSala() {
   conectado = false;
 
   // URL corregida con la barra "/" y prefijo único
-  canalUrl = 'https://ntfy.sh_' + sala;
+  canalUrl = 'https://ntfy.sh' + sala;
 
   const badge = document.getElementById('badge-estado');
   const estadoTxt = document.getElementById('estado-sala');
