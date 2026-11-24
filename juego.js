@@ -1,5 +1,6 @@
 let canalUrl = '';
 let eventSourceActivo = null;
+let intervaloPing = null;
 const miIdUnico = 'analista_' + Math.random().toString(36).substring(2, 9);
 let conectado = false;
 let sonidoActivo = true;
@@ -22,7 +23,8 @@ let partidaTerminada = false;
 function tocarSonido(tipo) {
   if (!sonidoActivo) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -57,27 +59,53 @@ function tocarSonido(tipo) {
 
 function toggleSonido() {
   sonidoActivo = !sonidoActivo;
-  document.getElementById('btn-sonido').innerText = sonidoActivo ? '🔊 Audio' : '🔇 Silencio';
+  document.getElementById('btn-sonido').innerText =
+    sonidoActivo ? '🔊 Audio' : '🔇 Silencio';
 }
 
 function entrarSala() {
-  const sala = document.getElementById('nombre-sala').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (!sala) return;
-
-  if (eventSourceActivo) {
-    eventSourceActivo.close();
+  const inputSala = document.getElementById('nombre-sala');
+  const sala = inputSala.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!sala) {
+    alert('Escribe un código de sala válido (letras o números).');
+    return;
   }
 
-  canalUrl = "https://ntfy.sh_" + sala;
+  if (eventSourceActivo) eventSourceActivo.close();
+  if (intervaloPing) clearInterval(intervaloPing);
+  conectado = false;
+
+  // URL corregida con la barra "/" y prefijo único
+  canalUrl = 'https://ntfy.sh_' + sala;
+
   const badge = document.getElementById('badge-estado');
+  const estadoTxt = document.getElementById('estado-sala');
+  const btnConectar = document.getElementById('btn-conectar');
+
   badge.innerText = 'Conectando...';
-  document.getElementById('estado-sala').innerText = `Conectando a sala "${sala}"... Esperando al compañero.`;
-  document.getElementById('btn-conectar').disabled = true;
+  estadoTxt.innerText = `Conectando a sala "${sala}"... Esperando al compañero.`;
+  btnConectar.disabled = true;
 
   eventSourceActivo = new EventSource(`${canalUrl}/sse`);
 
   eventSourceActivo.onopen = () => {
     enviarDato({ tipo: 'HOLA' });
+    // Pulso cada 2s hasta que el amigo responda
+    intervaloPing = setInterval(() => {
+      if (!conectado) {
+        enviarDato({ tipo: 'HOLA' });
+      } else {
+        clearInterval(intervaloPing);
+      }
+    }, 2000);
+  };
+
+  eventSourceActivo.onerror = () => {
+    if (!conectado) {
+      estadoTxt.innerText = 'Error de red al conectar. Verifica tu internet e intenta de nuevo.';
+      badge.innerText = 'Error de red';
+      btnConectar.disabled = false;
+    }
   };
 
   eventSourceActivo.onmessage = (event) => {
@@ -89,14 +117,10 @@ function entrarSala() {
       if (datos.emisor === miIdUnico) return;
 
       if (datos.tipo === 'HOLA') {
-        if (!conectado) {
-          activarTablero(sala);
-        }
+        if (!conectado) activarTablero(sala);
         enviarDato({ tipo: 'HOLA_RESPUESTA' });
       } else if (datos.tipo === 'HOLA_RESPUESTA') {
-        if (!conectado) {
-          activarTablero(sala);
-        }
+        if (!conectado) activarTablero(sala);
       } else if (datos.tipo === 'OFERTA') {
         rivalOferta = datos.valor;
         const pill = document.getElementById('estado-rival-ronda');
@@ -116,6 +140,7 @@ function entrarSala() {
 
 function activarTablero(sala) {
   conectado = true;
+  if (intervaloPing) clearInterval(intervaloPing);
   document.getElementById('panel-conexion').style.display = 'none';
   document.getElementById('panel-juego').style.display = 'block';
   const badge = document.getElementById('badge-estado');
@@ -125,7 +150,6 @@ function activarTablero(sala) {
   tocarSonido('ganar');
   agregarChat('Sistema: Sesión iniciada. Presupuesto inicial: 100 créditos cada uno.', 'chat-sistema');
 }
-
 function enviarDato(objeto) {
   if (!canalUrl) return;
   objeto.emisor = miIdUnico;
@@ -134,6 +158,7 @@ function enviarDato(objeto) {
     body: JSON.stringify(objeto)
   }).catch(() => {});
 }
+
 function fijarRapido(cantidad) {
   const input = document.getElementById('input-oferta');
   input.value = Math.min(cantidad, saldoMio);
@@ -160,7 +185,8 @@ function enviarOferta() {
   miOferta = valor;
   input.value = '';
   document.getElementById('zona-controles').style.display = 'none';
-  document.getElementById('instruccion').innerHTML = `Oferta fijada: <strong>${miOferta} créditos</strong>. Esperando al analista remoto...`;
+  document.getElementById('instruccion').innerHTML =
+    `Oferta fijada: <strong>${miOferta} créditos</strong>. Esperando al analista remoto...`;
 
   tocarSonido('oferta');
   enviarDato({ tipo: 'OFERTA', valor: miOferta });
@@ -198,7 +224,11 @@ function verificarResolucion() {
 
     agregarFilaHistorial(ronda, miOferta, rivalOferta, ganadorTexto, claseFila);
 
-    if (puntosMios >= META_VICTORIAS || puntosRival >= META_VICTORIAS || ronda >= MAX_RONDAS) {
+    const sinCreditosAmbos = (saldoMio === 0 && saldoRival === 0);
+    if (puntosMios >= META_VICTORIAS ||
+        puntosRival >= META_VICTORIAS ||
+        ronda >= MAX_RONDAS ||
+        sinCreditosAmbos) {
       finalizarPartida();
     } else {
       prepararSiguienteRonda();
@@ -231,7 +261,8 @@ function prepararSiguienteRonda() {
 
   document.getElementById('num-ronda').innerText = ronda;
   const restantes = MAX_RONDAS - ronda + 1;
-  document.getElementById('rondas-restantes').innerText = `${restantes} ${restantes === 1 ? 'restante' : 'restantes'}`;
+  document.getElementById('rondas-restantes').innerText =
+    `${restantes} ${restantes === 1 ? 'restante' : 'restantes'}`;
 
   const input = document.getElementById('input-oferta');
   input.max = saldoMio;
@@ -255,7 +286,7 @@ function finalizarPartida() {
     mensajeFinal = '📉 EL ANALISTA REMOTO GANÓ LA LICITACIÓN.';
     tocarSonido('perder');
   } else {
-    mensajeFinal = '🤝 EMPATE TÉCNICO AL FINAL DE LAS 7 RONDAS.';
+    mensajeFinal = '🤝 EMPATE TÉCNICO EN LA SERIE.';
   }
 
   document.getElementById('serie-mia').innerText = serieMia;
